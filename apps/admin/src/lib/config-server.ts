@@ -20,6 +20,9 @@ export function getConfig(): AppConfig {
 		discordUrl: process.env.DISCORD_URL ?? "https://llmgateway.io/discord",
 		twitterUrl: process.env.TWITTER_URL ?? "https://x.com/llmgateway",
 		docsUrl: process.env.DOCS_URL ?? "http://localhost:3005",
-		adminUrl: process.env.ADMIN_URL ?? "http://localhost:3006",
+		adminUrl:
+			process.env.ADMIN_APP_URL ??
+			process.env.ADMIN_URL ??
+			"http://localhost:3008",
 	};
 }
