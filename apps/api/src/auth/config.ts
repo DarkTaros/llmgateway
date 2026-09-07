@@ -38,10 +38,11 @@ const cookieDomain = process.env.COOKIE_DOMAIN ?? "localhost";
 const uiUrl = process.env.UI_URL ?? "http://localhost:3002";
 const codeUrl = process.env.CODE_URL ?? "http://localhost:3004";
 const adminUrl = process.env.ADMIN_URL ?? "http://localhost:3006";
+const adminAppUrl = process.env.ADMIN_APP_URL ?? "http://localhost:3008";
 const airsideUrl = process.env.AIRSIDE_URL ?? "http://localhost:3007";
 const originUrls =
 	process.env.ORIGIN_URLS ??
-	"http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:4002,http://localhost:3006,http://localhost:3007";
+	"http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:4002,http://localhost:3006,http://localhost:3007,http://localhost:3008";
 const isHosted = process.env.HOSTED === "true";
 
 // SSO-only enforcement: returns true when the email's domain has an SSO
@@ -745,7 +746,7 @@ export const apiAuth: ReturnType<typeof instrumentBetterAuth> =
 					// which all share the same registrable rpID. Passkeys are
 					// registered on the main dashboard; listing the other origins lets
 					// users reuse them to sign in there.
-					origin: [uiUrl, codeUrl, adminUrl, airsideUrl],
+					origin: [uiUrl, codeUrl, adminUrl, adminAppUrl, airsideUrl],
 				}),
 				sso({
 					// This app uses a custom organization model (userOrganization),

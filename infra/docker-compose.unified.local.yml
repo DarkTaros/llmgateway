@@ -25,8 +25,9 @@ services:
       # URLs (update for your domain in production)
       - UI_URL=${UI_URL:-http://localhost:3002}
       - API_URL=${API_URL:-http://localhost:4002}
+      - ADMIN_APP_URL=${ADMIN_APP_URL:-http://localhost:3008}
       - API_BACKEND_URL=${API_BACKEND_URL:-http://localhost:4002}
-      - ORIGIN_URLS=${ORIGIN_URLS:-http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3006,http://localhost:3007,http://localhost:4002}
+      - ORIGIN_URLS=${ORIGIN_URLS:-http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3006,http://localhost:3007,http://localhost:3008,http://localhost:4002}
       - DOCS_URL=${DOCS_URL:-http://localhost:3005}
       - ADMIN_URL=${ADMIN_URL:-http://localhost:3006}
       - PLAYGROUND_URL=${PLAYGROUND_URL:-http://localhost:3003}
