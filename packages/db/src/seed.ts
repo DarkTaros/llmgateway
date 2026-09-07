@@ -64,9 +64,7 @@ function randomInt(min: number, max: number) {
 }
 
 function randomFloat(min: number, max: number, decimals = 2) {
-	/* eslint-disable no-mixed-operators */
 	return Number((secureRandom() * (max - min) + min).toFixed(decimals));
-	/* eslint-enable no-mixed-operators */
 }
 
 function randomChoice<T>(arr: T[]): T {
@@ -74,21 +72,15 @@ function randomChoice<T>(arr: T[]): T {
 }
 
 function daysAgo(days: number) {
-	/* eslint-disable no-mixed-operators */
 	return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-	/* eslint-enable no-mixed-operators */
 }
 
 function daysFromNow(days: number) {
-	/* eslint-disable no-mixed-operators */
 	return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-	/* eslint-enable no-mixed-operators */
 }
 
 function hoursAgo(hours: number) {
-	/* eslint-disable no-mixed-operators */
 	return new Date(Date.now() - hours * 60 * 60 * 1000);
-	/* eslint-enable no-mixed-operators */
 }
 
 // Every seeded account uses its own email address as its plaintext password
@@ -474,7 +466,7 @@ const EXTRA_ORGS: Array<{
 const USER_ORG_MAP: Array<{
 	userId: string;
 	orgId: string;
-	role: "owner" | "admin" | "developer";
+	role: "owner" | "admin" | "project_admin" | "developer";
 }> = [
 	{ userId: "user-alice", orgId: "org-techcorp", role: "owner" },
 	{ userId: "user-bob", orgId: "org-startup", role: "owner" },
@@ -591,7 +583,36 @@ function generateApiKeys(projects: ProjectDef[]): ApiKeyDef[] {
 	return keys;
 }
 
-function generateLogs(projects: ProjectDef[], apiKeys: ApiKeyDef[]) {
+// BYOK credentials for the demo organizations, so api-keys traffic is
+// attributable to a provider key (provider-credential spend and the global
+// stats per-key filter). Credits traffic stays unattributed, like requests
+// served by env-var credentials.
+function generateProviderKeys(projects: ProjectDef[]) {
+	const keys: (typeof tables.providerKey.$inferInsert)[] = [];
+	const orgIds = new Set(
+		projects.filter((p) => p.mode !== "credits").map((p) => p.orgId),
+	);
+	for (const orgId of orgIds) {
+		for (const provider of ["openai", "anthropic"]) {
+			keys.push({
+				id: `seed-pk-${orgId}-${provider}`,
+				organizationId: orgId,
+				provider,
+				token: `sk-seed-${provider}-${orgId}`,
+				tokenMasked: `sk-...${orgId.slice(-4)}`,
+				description: `${provider} production key`,
+				usage: String(randomFloat(0, 200)),
+			});
+		}
+	}
+	return keys;
+}
+
+function generateLogs(
+	projects: ProjectDef[],
+	apiKeys: ApiKeyDef[],
+	providerKeys: (typeof tables.providerKey.$inferInsert)[],
+) {
 	const generatedLogs = [];
 	const keysByProject = new Map<string, ApiKeyDef[]>();
 	for (const key of apiKeys) {
@@ -599,6 +620,12 @@ function generateLogs(projects: ProjectDef[], apiKeys: ApiKeyDef[]) {
 		existing.push(key);
 		keysByProject.set(key.projectId, existing);
 	}
+	const providerKeyIds = new Map(
+		providerKeys.map((key) => [
+			`${key.organizationId}:${key.provider}`,
+			key.id,
+		]),
+	);
 
 	for (const proj of projects) {
 		const projKeys = keysByProject.get(proj.id);
@@ -682,6 +709,10 @@ function generateLogs(projects: ProjectDef[], apiKeys: ApiKeyDef[]) {
 					: undefined,
 				mode: proj.mode,
 				usedMode,
+				providerKeyId:
+					usedMode === "api-keys"
+						? providerKeyIds.get(`${proj.orgId}:${modelDef.provider}`)
+						: undefined,
 				streamed: isStreamed,
 				cached: isCached,
 				discount,
@@ -983,11 +1014,10 @@ function generateProjectHourlyModelStats(projects: ProjectDef[]) {
 				const errCount = secureRandom() < 0.1 ? randomInt(1, 3) : 0;
 				const inputTok = reqCount * randomInt(100, 1500);
 				const outputTok = reqCount * randomInt(50, 1000);
-				/* eslint-disable no-mixed-operators */
+
 				const costVal =
 					(inputTok / 1000) * modelDef.inputPrice +
 					(outputTok / 1000) * modelDef.outputPrice;
-				/* eslint-enable no-mixed-operators */
 
 				stats.push({
 					id: `phms-${statIdx}`,
@@ -1134,9 +1164,7 @@ function generateProjectHourlySourceStats(projects: ProjectDef[]) {
 }
 
 function minutesAgo(minutes: number) {
-	/* eslint-disable no-mixed-operators */
 	return new Date(Date.now() - minutes * 60 * 1000);
-	/* eslint-enable no-mixed-operators */
 }
 
 function generateSeedProviders() {
@@ -1365,7 +1393,6 @@ function generateSeedModelHistory() {
 const HISTORY_HOURLY_DAYS = 60;
 
 function hourlyModelVolume(rankIndex: number, hoursBack: number) {
-	/* eslint-disable no-mixed-operators */
 	const baseTokensPerHour = Math.round(2_000_000 / (rankIndex + 1) ** 0.85);
 	// Daily growth between roughly -4.5% and +4.5% depending on the model, so
 	// some models trend up and others down over the window.
@@ -1374,7 +1401,6 @@ function hourlyModelVolume(rankIndex: number, hoursBack: number) {
 	const trend = dailyGrowth ** -daysBack;
 	const noise = 0.7 + secureRandom() * 0.6;
 	return Math.max(1, Math.round(baseTokensPerHour * trend * noise));
-	/* eslint-enable no-mixed-operators */
 }
 
 function generateSeedModelHistoryHourly() {
@@ -1847,9 +1873,9 @@ async function seed() {
 			finishDef.unified === "gateway_error" ||
 			finishDef.unified === "client_error";
 		const minutesBack = randomInt(0, 30 * 24 * 60);
-		/* eslint-disable no-mixed-operators */
+
 		const createdAt = new Date(Date.now() - minutesBack * 60 * 1000);
-		/* eslint-enable no-mixed-operators */
+
 		const promptTokens = randomInt(800, 18000);
 		const completionTokens = isError ? 0 : randomInt(60, 4500);
 		const totalTokens = promptTokens + completionTokens;
@@ -2293,6 +2319,54 @@ async function seed() {
 		userOrganizationId: "enterprise-dev-user-org-id",
 		projectId: "enterprise-project-id",
 	});
+
+	await upsert(tables.user, {
+		id: "enterprise-project-admin-user-id",
+		name: "Project Admin",
+		email: "project-admin@example.com",
+		emailVerified: true,
+		onboardingCompleted: true,
+	});
+	await upsert(tables.account, {
+		id: "enterprise-project-admin-account-id",
+		providerId: "credential",
+		accountId: "enterprise-project-admin-account-id",
+		password: await hashPassword("project-admin@example.com"),
+		userId: "enterprise-project-admin-user-id",
+	});
+	await upsert(tables.userOrganization, {
+		id: "enterprise-project-admin-user-org-id",
+		userId: "enterprise-project-admin-user-id",
+		organizationId: "enterprise-org-id",
+		role: "project_admin",
+	});
+	await upsert(tables.userProject, {
+		id: "enterprise-project-admin-user-project-id",
+		userOrganizationId: "enterprise-project-admin-user-org-id",
+		projectId: "enterprise-project-id",
+	});
+
+	await bulkInsert(
+		tables.projectHourlyStats,
+		Array.from({ length: 90 }, (_, day) => {
+			const hourTimestamp = daysAgo(day);
+			hourTimestamp.setUTCHours(0, 0, 0, 0);
+			return {
+				id: `enterprise-usage-${hourTimestamp.toISOString().slice(0, 10)}`,
+				projectId: "enterprise-project-id",
+				hourTimestamp,
+				requestCount: 100 + day,
+				creditsRequestCount: 100 + day,
+				inputTokens: "80000",
+				outputTokens: "20000",
+				totalTokens: "100000",
+				cost: 0.3,
+				creditsCost: 0.3,
+				inputCost: 0.1,
+				outputCost: 0.2,
+			};
+		}),
+	);
 
 	// A key the developer created, so their own-usage view has something to show.
 	await upsert(tables.apiKey, {
@@ -2788,7 +2862,12 @@ async function seed() {
 		});
 	}
 
-	const generatedLogs = generateLogs(projects, apiKeys);
+	const providerKeys = generateProviderKeys(projects);
+	for (const key of providerKeys) {
+		await upsert(tables.providerKey, key);
+	}
+
+	const generatedLogs = generateLogs(projects, apiKeys, providerKeys);
 	await bulkInsert(tables.log, generatedLogs);
 
 	const transactions = generateTransactions();

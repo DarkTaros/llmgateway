@@ -1,5 +1,4 @@
 import lint from "@steebchen/lint-base";
-import importPlugin from "eslint-plugin-import";
 import noRelativeImportPathsPlugin from "eslint-plugin-no-relative-import-paths";
 
 /** @type {import("eslint").Linter.Config[]} */
@@ -7,7 +6,6 @@ export default [
 	...lint,
 	{
 		plugins: {
-			import: importPlugin,
 			"no-relative-import-paths": noRelativeImportPathsPlugin,
 		},
 		settings: {
@@ -75,6 +73,8 @@ export default [
 			"@eslint-react/naming-convention/use-state": "off",
 			"@eslint-react/prefer-use-state-lazy-initialization": "off",
 			"no-console": "error",
+			"no-useless-assignment": "off",
+			"import/consistent-type-specifier-style": "off",
 			// provider_key stores its secret encrypted in `tokenCiphertext`. Reading
 			// it directly skips authenticated decryption — a bug that has recurred in
 			// the chat, embeddings, speech, transcriptions, OCR, moderations, video and
@@ -176,6 +176,36 @@ export default [
 		],
 		rules: {
 			"no-console": "off",
+		},
+	},
+	{
+		files: [
+			"**/*.spec.ts",
+			"**/*.spec.tsx",
+			"**/*.test.ts",
+			"**/*.test.tsx",
+			"**/*.e2e.ts",
+			"**/test-utils/**",
+		],
+		rules: {
+			"import/no-extraneous-dependencies": [
+				"error",
+				{
+					devDependencies: true,
+					whitelist: ["vitest"],
+				},
+			],
+		},
+	},
+	{
+		files: ["**/*.pw.ts", "**/*.pw.tsx"],
+		rules: {
+			"import/no-extraneous-dependencies": [
+				"error",
+				{
+					devDependencies: true,
+				},
+			],
 		},
 	},
 	{

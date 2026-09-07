@@ -74,8 +74,10 @@ import {
 	getLicensedOrganizationPlan,
 	hasOrganizationEnterpriseAccess,
 } from "@/lib/enterprise.js";
-import { rateLimitHeaders } from "@/lib/error-schemas.js";
-import { standardErrorResponses } from "@/lib/error-schemas.js";
+import {
+	rateLimitHeaders,
+	standardErrorResponses,
+} from "@/lib/error-schemas.js";
 import { createFailedKeyTracker } from "@/lib/failed-key-tracker.js";
 import {
 	getGcpAccessToken,
@@ -334,10 +336,7 @@ import {
 	withCurrentRequestMetadataOnOpenAiResponse,
 	zeroCostsOnCachedResponseUsage,
 } from "./tools/transform-response-to-openai.js";
-import {
-	type AnthropicToolSearchState,
-	transformStreamingToOpenai,
-} from "./tools/transform-streaming-to-openai.js";
+import { transformStreamingToOpenai } from "./tools/transform-streaming-to-openai.js";
 import { validateFreeModelUsage } from "./tools/validate-free-model-usage.js";
 import { validateModelCapabilities } from "./tools/validate-model-capabilities.js";
 
@@ -346,6 +345,7 @@ import type {
 	ProviderFilterReason,
 } from "./tools/provider-filter-reasons.js";
 import type { OriginalRequestParams } from "./tools/resolve-provider-context.js";
+import type { AnthropicToolSearchState } from "./tools/transform-streaming-to-openai.js";
 import type { ServerTypes } from "@/vars.js";
 import type { RoutingCredentialSource } from "@llmgateway/shared/routing-telemetry";
 
@@ -5306,17 +5306,15 @@ chat.openapi(completions, async (c) => {
 							score.rate_limited = true;
 						}
 					}
-					{
-						await appendHybridDemotedProviderScores(
-							routingMetadata,
-							contentFilterPreferredProviders.filter(
-								(candidate) =>
-									!routingCandidateProviderIds.has(candidate.providerId) &&
-									!rateLimitedProviderIds.has(candidate.providerId),
-							),
-							modelWithPricing.id,
-						);
-					}
+					await appendHybridDemotedProviderScores(
+						routingMetadata,
+						contentFilterPreferredProviders.filter(
+							(candidate) =>
+								!routingCandidateProviderIds.has(candidate.providerId) &&
+								!rateLimitedProviderIds.has(candidate.providerId),
+						),
+						modelWithPricing.id,
+					);
 				} else {
 					usedProvider = routingCandidates[0].providerId;
 					usedInternalModel = modelInfo.id;
@@ -7102,16 +7100,13 @@ chat.openapi(completions, async (c) => {
 	// When the provider only supports streaming, force it even if the client didn't request it.
 	// The upstream request uses effectiveStream; the client response uses stream.
 	const forceStream = streamingSupport === "only" && !stream;
-	// Force upstream SSE for OpenAI/Azure gpt-image-* regardless of what the client
-	// requested. For image generation the upstream request is always non-streaming
-	// (effectiveStream is forced false above when faking streaming for the client),
-	// so partial_images=1 is needed in both cases to keep the connection alive past
-	// Azure's 122s synchronous wall and to use AI_STREAMING_TIMEOUT_MS (1200s default)
-	// instead of AI_TIMEOUT_MS (600s). The SSE response is collapsed back into the
-	// regular non-streaming JSON shape before being returned (or re-wrapped as fake
-	// SSE for clients that requested streaming).
+	// OpenAI/Azure image streaming only supports n=1. Force SSE for single-image
+	// requests to keep the connection alive past Azure's 122s synchronous wall
+	// and use AI_STREAMING_TIMEOUT_MS. Collapse the response to JSON (or fake
+	// client SSE); batches use the provider's non-streaming response.
 	let forceImageStreamUpstream =
 		isImageGeneration &&
+		(image_config?.n ?? 1) === 1 &&
 		(usedProvider === "openai" || usedProvider === "azure");
 	const effectiveStream = fakeStreamingForImageGen
 		? false
@@ -7597,6 +7592,7 @@ chat.openapi(completions, async (c) => {
 		isImageGeneration = ctx.isImageGeneration;
 		forceImageStreamUpstream =
 			isImageGeneration &&
+			(image_config?.n ?? 1) === 1 &&
 			(usedProvider === "openai" || usedProvider === "azure");
 		if (forceImageStreamUpstream) {
 			requestBody = injectImageStreamParams(requestBody);
@@ -8306,15 +8302,12 @@ chat.openapi(completions, async (c) => {
 							// Log the timeout error in the database
 							const timeoutPluginIds = plugins?.map((p) => p.id) ?? [];
 
-							let sameProviderRetryContext: Awaited<
-								ReturnType<typeof resolveProviderContext>
-							> | null = null;
 							rememberFailedKey(usedProvider, usedRegion, {
 								envVarName,
 								configIndex,
 								providerKeyId: providerKey?.id ?? managedKey?.id,
 							});
-							sameProviderRetryContext =
+							const sameProviderRetryContext =
 								await tryResolveAlternateKeyForCurrentProvider(true);
 
 							// Check if we should retry before logging so we can mark the log as retried

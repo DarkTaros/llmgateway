@@ -51,8 +51,25 @@ import {
 	userOrganization as userOrganizationTable,
 	userProject as userProjectTable,
 	wallet as walletTable,
+	type ApiKey,
+	type ApiKeyPeriodDurationUnit,
+	type EffectiveDiscount,
+	type EffectiveRateLimit,
+	type InferSelectModel,
+	type apiKeyIamRule,
+	type customModel,
+	type endUserSession,
+	type organization,
+	type project,
+	type providerKey,
+	type user,
+	type userIamRule,
+	type organizationTeamIamRule,
+	type userOrganization,
+	type wallet,
 } from "@llmgateway/db";
 import { getRegionScopedDefaultRegion } from "@llmgateway/models";
+import { isProjectScopedRole } from "@llmgateway/shared/organization-roles";
 
 import {
 	getApiKeyFingerprint,
@@ -64,24 +81,6 @@ import {
 	isTrackedKeyHealthy,
 } from "./api-key-health.js";
 
-import type { ApiKey } from "@llmgateway/db";
-import type { ApiKeyPeriodDurationUnit } from "@llmgateway/db";
-import type { EffectiveRateLimit } from "@llmgateway/db";
-import type { EffectiveDiscount } from "@llmgateway/db";
-import type { InferSelectModel } from "@llmgateway/db";
-import type {
-	apiKeyIamRule,
-	customModel,
-	endUserSession,
-	organization,
-	project,
-	providerKey,
-	user,
-	userIamRule,
-	organizationTeamIamRule,
-	userOrganization,
-	wallet,
-} from "@llmgateway/db";
 import type { EnvVarVariant } from "@llmgateway/models";
 
 // Type aliases for cleaner function signatures
@@ -1214,7 +1213,7 @@ export async function memberHasEffectiveProjectAccess(
 			if (!membership) {
 				return false;
 			}
-			if (membership.role !== "developer") {
+			if (!isProjectScopedRole(membership.role)) {
 				return true;
 			}
 
