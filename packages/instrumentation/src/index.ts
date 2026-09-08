@@ -2,8 +2,8 @@ import { TraceExporter } from "@google-cloud/opentelemetry-cloud-trace-exporter"
 import { CloudPropagator } from "@google-cloud/opentelemetry-cloud-trace-propagator";
 import { trace } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
-import { CompositePropagator } from "@opentelemetry/core";
 import {
+	CompositePropagator,
 	W3CTraceContextPropagator,
 	W3CBaggagePropagator,
 } from "@opentelemetry/core";
